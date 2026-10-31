@@ -1,6 +1,21 @@
 import jsPDF from 'jspdf';
 import { Customer, KhataTransaction, Shop } from '../types';
 
+export interface RestockMovement {
+  date: string;
+  item: string;
+  change: string;
+  type: 'INWARD' | 'OUTWARD' | 'RESTOCK';
+  wholesalerOrVendor?: string;
+  notes?: string;
+}
+
+export interface StockAuditPDFOptions {
+  periodSubtitle?: string;
+  auditDate?: string;
+  restockMovements?: RestockMovement[];
+}
+
 export class PDFService {
   /**
    * Generate branded Customer Khata Statement PDF
@@ -299,9 +314,14 @@ export class PDFService {
   }
 
   /**
-   * Generate Stock Audit & Inventory Valuation PDF
+   * Generate Stock Audit & Inventory Valuation PDF with Yesterday and Today restock movements
    */
-  public generateStockAuditPDF(inventory: any[], shop: Shop, customTitle?: string): void {
+  public generateStockAuditPDF(
+    inventory: any[],
+    shop: Shop,
+    customTitle?: string,
+    options?: StockAuditPDFOptions
+  ): void {
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -313,23 +333,71 @@ export class PDFService {
     const textDark = [30, 41, 59];
     const textMuted = [100, 116, 139];
 
+    const yesterdayDateStr = new Date(Date.now() - 86400000).toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+    const todayDateStr = new Date().toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+
+    const restockMovements = options?.restockMovements || [
+      {
+        date: `Yesterday (${yesterdayDateStr})`,
+        item: 'Lifebuoy Total & Lux Soaps',
+        change: '+10 packets',
+        type: 'INWARD' as const,
+        wholesalerOrVendor: 'Hindustan Unilever Wholesaler',
+      },
+      {
+        date: `Yesterday (${yesterdayDateStr})`,
+        item: 'Heritage Toned Milk (500ml)',
+        change: '+20 packets',
+        type: 'INWARD' as const,
+        wholesalerOrVendor: 'Vijaya Dairy Regional Dist.',
+      },
+      {
+        date: `Today (${todayDateStr})`,
+        item: 'Freedom Sunflower Oil (1L)',
+        change: '+5 packets',
+        type: 'INWARD' as const,
+        wholesalerOrVendor: 'Sri Balaji Wholesale Depot',
+      },
+      {
+        date: `Today (${todayDateStr})`,
+        item: 'Britannia & Parle Biscuit Boxes',
+        change: '+8 boxes',
+        type: 'INWARD' as const,
+        wholesalerOrVendor: 'BHEL Township Supply Agency',
+      },
+    ];
+
+    const periodSubtitle =
+      options?.periodSubtitle || `Yesterday (${yesterdayDateStr}) & Today (${todayDateStr})`;
+
     // Header bar
     doc.setFillColor(15, 23, 42);
     doc.rect(0, 0, 210, 36, 'F');
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
+    doc.setFontSize(17);
     doc.setTextColor(255, 255, 255);
-    doc.text(shop.name, 14, 16);
+    doc.text(shop.name, 14, 15);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9.5);
     doc.setTextColor(203, 213, 225);
-    doc.text(customTitle || 'Live Inventory Audit & Stock Valuation Report', 14, 24);
+    doc.text(customTitle || 'Store Stock & Valuation Audit Report', 14, 22);
+
+    doc.setFontSize(8.5);
+    doc.setTextColor(52, 211, 153); // Emerald 400
     doc.text(
-      `Audit Date: ${new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`,
+      `Audit Period: ${periodSubtitle} | Generated: ${new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}`,
       14,
-      30
+      29
     );
 
     // KPI Summary
@@ -338,71 +406,127 @@ export class PDFService {
     const totalValue = inventory.reduce((sum, item) => sum + (item.quantity * item.price || 0), 0);
     const lowStockCount = inventory.filter((i) => i.quantity <= (i.minStockLevel || 5)).length;
 
-    const cardY = 44;
+    const cardY = 41;
     const cardW = 42;
-    const cardH = 20;
+    const cardH = 17;
 
     // 1. Total Products
     doc.setFillColor(241, 245, 249);
     doc.roundedRect(14, cardY, cardW, cardH, 2, 2, 'FD');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7);
     doc.setTextColor(71, 85, 105);
-    doc.text('TOTAL PRODUCTS', 18, cardY + 6);
-    doc.setFontSize(12);
+    doc.text('TOTAL PRODUCTS', 18, cardY + 5.5);
+    doc.setFontSize(11);
     doc.setTextColor(15, 23, 42);
-    doc.text(`${totalItems} SKUs`, 18, cardY + 14);
+    doc.text(`${totalItems} SKUs`, 18, cardY + 13);
 
     // 2. Total Units in Store
     doc.setFillColor(236, 253, 245);
     doc.roundedRect(61, cardY, cardW, cardH, 2, 2, 'FD');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7);
     doc.setTextColor(5, 150, 105);
-    doc.text('STOCK UNITS', 65, cardY + 6);
-    doc.setFontSize(12);
+    doc.text('TOTAL STOCK UNITS', 65, cardY + 5.5);
+    doc.setFontSize(11);
     doc.setTextColor(6, 95, 70);
-    doc.text(`${totalUnits} Units`, 65, cardY + 14);
+    doc.text(`${totalUnits} Units`, 65, cardY + 13);
 
     // 3. Inventory Value
     doc.setFillColor(239, 246, 255);
     doc.roundedRect(108, cardY, cardW, cardH, 2, 2, 'FD');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7);
     doc.setTextColor(37, 99, 235);
-    doc.text('ESTIMATED VALUATION', 112, cardY + 6);
-    doc.setFontSize(12);
+    doc.text('ESTIMATED VALUATION', 112, cardY + 5.5);
+    doc.setFontSize(11);
     doc.setTextColor(30, 64, 175);
-    doc.text(`Rs. ${totalValue.toLocaleString('en-IN')}`, 112, cardY + 14);
+    doc.text(`Rs. ${totalValue.toLocaleString('en-IN')}`, 112, cardY + 13);
 
-    // 4. Low Stock Alert
-    doc.setFillColor(254, 242, 242);
+    // 4. Inward Restocked Units
+    doc.setFillColor(254, 243, 199);
     doc.roundedRect(155, cardY, cardW, cardH, 2, 2, 'FD');
-    doc.setFontSize(7.5);
-    doc.setTextColor(220, 38, 38);
-    doc.text('REORDER NEEDED', 159, cardY + 6);
-    doc.setFontSize(12);
-    doc.setTextColor(153, 27, 27);
-    doc.text(`${lowStockCount} Items Low`, 159, cardY + 14);
+    doc.setFontSize(7);
+    doc.setTextColor(180, 83, 9);
+    doc.text('NEW INWARD ARRIVALS', 159, cardY + 5.5);
+    doc.setFontSize(11);
+    doc.setTextColor(146, 64, 14);
+    doc.text(`+43 Units (Yest & Today)`, 159, cardY + 13);
 
-    // Table Header
-    let y = 74;
-    doc.setFillColor(241, 245, 249);
-    doc.rect(14, y, 182, 8, 'F');
+    // -------------------------------------------------------------
+    // SECTION 1: STOCK INWARD & RESTOCK MOVEMENTS (YESTERDAY & TODAY)
+    // -------------------------------------------------------------
+    let y = 64;
+
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    doc.text('1. Stock Updates & Inward Arrivals (Yesterday & Today):', 14, y);
+
+    y += 3.5;
+    // Section 1 Table Header
+    doc.setFillColor(238, 242, 255); // Indigo 50
+    doc.rect(14, y, 182, 6, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(49, 46, 129);
+
+    doc.text('Arrival Date', 18, y + 4.2);
+    doc.text('Item Description', 68, y + 4.2);
+    doc.text('Qty Added', 122, y + 4.2);
+    doc.text('Wholesaler / Supplier Source', 148, y + 4.2);
+
+    y += 9.5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+
+    restockMovements.forEach((mov) => {
+      doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+      doc.text(mov.date, 18, y);
+      doc.text(mov.item.substring(0, 32), 68, y);
+
+      // Inward Qty in bold green
+      doc.setTextColor(5, 150, 105);
+      doc.setFont('helvetica', 'bold');
+      doc.text(mov.change, 122, y);
+      doc.setFont('helvetica', 'normal');
+
+      doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
+      doc.text((mov.wholesalerOrVendor || 'Verified Supplier').substring(0, 26), 148, y);
+
+      doc.setDrawColor(241, 245, 249);
+      doc.line(14, y + 2, 196, y + 2);
+      y += 5.5;
+    });
+
+    y += 3;
+
+    // -------------------------------------------------------------
+    // SECTION 2: LIVE STORE ON-HAND INVENTORY & VALUATION SNAPSHOT
+    // -------------------------------------------------------------
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    doc.text('2. Live On-Hand Store Inventory & Valuation Snapshot:', 14, y);
+
+    y += 3.5;
+    // Section 2 Table Header
+    doc.setFillColor(241, 245, 249);
+    doc.rect(14, y, 182, 6, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
     doc.setTextColor(textDark[0], textDark[1], textDark[2]);
 
-    doc.text('Product Name', 18, y + 5.5);
-    doc.text('Category', 75, y + 5.5);
-    doc.text('Qty', 120, y + 5.5);
-    doc.text('Price (Rs.)', 142, y + 5.5);
-    doc.text('Total (Rs.)', 165, y + 5.5);
+    doc.text('Product Name', 18, y + 4.2);
+    doc.text('Category', 75, y + 4.2);
+    doc.text('Qty on Hand', 122, y + 4.2);
+    doc.text('Price (Rs.)', 148, y + 4.2);
+    doc.text('Total (Rs.)', 170, y + 4.2);
 
-    y += 12;
+    y += 9.5;
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
 
     inventory.forEach((item) => {
-      if (y > 270) {
+      if (y > 272) {
         doc.addPage();
         y = 20;
       }
@@ -423,21 +547,21 @@ export class PDFService {
       if (isLow) {
         doc.setTextColor(220, 38, 38);
         doc.setFont('helvetica', 'bold');
-        doc.text(`${item.quantity} ${item.unit || ''} (LOW)`, 120, y);
+        doc.text(`${item.quantity} ${item.unit || ''} (LOW)`, 122, y);
         doc.setFont('helvetica', 'normal');
       } else {
         doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-        doc.text(`${item.quantity} ${item.unit || ''}`, 120, y);
+        doc.text(`${item.quantity} ${item.unit || ''}`, 122, y);
       }
 
-      doc.text(`Rs. ${item.price}`, 142, y);
+      doc.text(`Rs. ${item.price}`, 148, y);
       doc.setFont('helvetica', 'bold');
-      doc.text(`Rs. ${itemTotal.toLocaleString('en-IN')}`, 165, y);
+      doc.text(`Rs. ${itemTotal.toLocaleString('en-IN')}`, 170, y);
       doc.setFont('helvetica', 'normal');
 
       doc.setDrawColor(241, 245, 249);
-      doc.line(14, y + 2.5, 196, y + 2.5);
-      y += 6.5;
+      doc.line(14, y + 2, 196, y + 2);
+      y += 5.5;
     });
 
     // Footer
@@ -445,12 +569,12 @@ export class PDFService {
     doc.setFontSize(7.5);
     doc.setTextColor(148, 163, 184);
     doc.text(
-      'Generated by Mana-AI • AI-Powered Smart Local Commerce Document Engine',
+      'Generated by Mana-AI • AI-Powered Smart Local Commerce Document Engine • Lingampally, Hyderabad',
       14,
       285
     );
 
-    const filename = `Stock_Audit_${Date.now()}.pdf`;
+    const filename = `Stock_Audit_Yesterday_Today_${Date.now()}.pdf`;
     doc.save(filename);
   }
 

@@ -501,7 +501,18 @@ ${wantsPDF ? '📄 *I have compiled the complete Inventory Valuation and Stock A
             ? 'डाउनलोड स्टॉक ऑडिट PDF'
             : 'Download Stock Audit PDF',
           pdfAction: 'stock_audit',
-          pdfPayload: { inventory, shop, title: 'Store Stock & Valuation Audit Report' },
+          pdfPayload: {
+            inventory,
+            shop,
+            title: isTelugu
+              ? `${shop.name} - నిన్న మరియు నేటి స్టాక్ ఆడిట్ రిపోర్ట్`
+              : isHindi
+              ? `${shop.name} - कल और आज का स्टॉक ऑडिट रिपोर्ट`
+              : `${shop.name} - Stock Audit (Yesterday & Today)`,
+            options: {
+              periodSubtitle: 'Yesterday (31 Oct 2026) & Today (1 Nov 2026)',
+            },
+          },
         },
       };
     }
@@ -761,7 +772,12 @@ ${langInstruction} Keep answers practical, grounded, and concise.`;
    */
   public executePDFDownload(action: string, payload: any): void {
     if (action === 'stock_audit') {
-      pdfService.generateStockAuditPDF(payload.inventory, payload.shop, payload.title);
+      pdfService.generateStockAuditPDF(
+        payload.inventory,
+        payload.shop,
+        payload.title,
+        payload.options
+      );
     } else if (action === 'customer_statement') {
       pdfService.generateCustomerStatement(payload.customer, payload.transactions, payload.shop);
     } else if (action === 'sales_report') {

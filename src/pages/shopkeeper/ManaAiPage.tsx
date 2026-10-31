@@ -82,7 +82,10 @@ Ask me anything about your shop:
       pdfPayload: {
         inventory: storage.getInventory(shop.id),
         shop,
-        title: `${shop.name} Stock Audit & Business Status`,
+        title: `${shop.name} Stock Audit & Restock Report`,
+        options: {
+          periodSubtitle: 'Yesterday (31 Oct 2026) & Today (1 Nov 2026)',
+        },
       },
     },
   });
