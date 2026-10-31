@@ -13,6 +13,8 @@ import {
   X,
   ArrowLeft,
   Globe,
+  Bot,
+  Sparkles,
 } from 'lucide-react';
 import { storage } from '../../services/storageService';
 import { useLanguage, Language } from '../../context/LanguageContext';
@@ -44,10 +46,16 @@ export const ShopkeeperDashboardLayout: React.FC = () => {
       exact: true,
     },
     {
+      path: '/shopkeeper/mana-ai',
+      label: language === 'te' ? 'Mana-AI కోపైలట్' : language === 'hi' ? 'Mana-AI सलाहकार' : 'Mana-AI Copilot',
+      icon: Bot,
+      highlight: true,
+      badgeText: 'AI',
+    },
+    {
       path: '/shopkeeper/ai-assistant',
       label: language === 'te' ? 'చెప్పి రాయించండి' : language === 'hi' ? 'बोलकर एंट्री करें' : 'Voice Entry',
       icon: Mic,
-      highlight: true,
     },
     {
       path: '/shopkeeper/inventory',
@@ -157,6 +165,12 @@ export const ShopkeeperDashboardLayout: React.FC = () => {
                   <Icon className={`w-4 h-4 ${active ? 'text-white' : item.highlight ? 'text-emerald-400' : 'text-slate-400'}`} />
                   <span>{item.label}</span>
                 </div>
+
+                {item.badgeText && (
+                  <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 font-black text-[9px] uppercase tracking-wider">
+                    {item.badgeText}
+                  </span>
+                )}
 
                 {item.badgeKey === 'orders' && pendingOrdersCount > 0 && (
                   <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 font-black text-[10px] flex items-center justify-center">
@@ -297,15 +311,15 @@ export const ShopkeeperDashboardLayout: React.FC = () => {
           </Link>
 
           <Link
-            to="/shopkeeper/ai-assistant"
+            to="/shopkeeper/mana-ai"
             className={`flex flex-col items-center py-1 px-2 rounded-lg text-[10px] font-bold ${
-              location.pathname.startsWith('/shopkeeper/ai-assistant')
+              location.pathname.startsWith('/shopkeeper/mana-ai')
                 ? 'text-emerald-700'
                 : 'text-slate-500'
             }`}
           >
-            <Mic className="w-4 h-4 mb-0.5 text-emerald-600" />
-            <span>{language === 'te' ? 'చెప్పండి' : language === 'hi' ? 'बोलें' : 'Voice'}</span>
+            <Bot className="w-4 h-4 mb-0.5 text-emerald-600" />
+            <span>Mana-AI</span>
           </Link>
 
           <Link

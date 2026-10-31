@@ -17,6 +17,7 @@ import { CustomerOrdersListPage } from './pages/customer/CustomerOrdersListPage'
 // Shopkeeper Pages
 import { ShopkeeperDashboardLayout } from './pages/shopkeeper/ShopkeeperDashboardLayout';
 import { ShopOverview } from './pages/shopkeeper/ShopOverview';
+import { ManaAiPage } from './pages/shopkeeper/ManaAiPage';
 import { ShopAIAssistant } from './pages/shopkeeper/ShopAIAssistant';
 import { InventoryManagement } from './pages/shopkeeper/InventoryManagement';
 import { OrdersManagement } from './pages/shopkeeper/OrdersManagement';
@@ -113,6 +114,7 @@ export const App: React.FC = () => {
           {/* Shopkeeper Dashboard Experience */}
           <Route path="/shopkeeper" element={<ShopkeeperDashboardLayout />}>
             <Route index element={<ShopOverview />} />
+            <Route path="mana-ai" element={<ManaAiPage />} />
             <Route path="ai-assistant" element={<ShopAIAssistant />} />
             <Route path="inventory" element={<InventoryManagement />} />
             <Route path="orders" element={<OrdersManagement />} />

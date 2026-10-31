@@ -13,6 +13,7 @@ import {
   DollarSign,
   CheckCircle2,
   PhoneCall,
+  Bot,
 } from 'lucide-react';
 import { storage } from '../../services/storageService';
 import { Order, InventoryItem, Transaction } from '../../types';
@@ -71,14 +72,23 @@ export const ShopOverview: React.FC = () => {
           </p>
         </div>
 
-        {/* Big Voice Assistant quick CTA */}
-        <Link
-          to="/shopkeeper/ai-assistant"
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-md transition"
-        >
-          <Mic className="w-4 h-4" />
-          <span>{t('actionVoiceEntry')}</span>
-        </Link>
+        {/* CTAs */}
+        <div className="flex items-center gap-2">
+          <Link
+            to="/shopkeeper/mana-ai"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-slate-900 to-emerald-950 hover:from-slate-800 hover:to-emerald-900 text-white font-bold text-xs sm:text-sm shadow-md transition border border-emerald-500/30"
+          >
+            <Bot className="w-4 h-4 text-emerald-400" />
+            <span>Mana-AI Copilot</span>
+          </Link>
+          <Link
+            to="/shopkeeper/ai-assistant"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs sm:text-sm transition"
+          >
+            <Mic className="w-4 h-4 text-emerald-700" />
+            <span>{t('actionVoiceEntry')}</span>
+          </Link>
+        </div>
       </div>
 
       {/* TODAY'S SUMMARY CARDS */}
@@ -161,26 +171,43 @@ export const ShopOverview: React.FC = () => {
         </div>
       </div>
 
-      {/* QUICK ACTIONS ROW */}
-      <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
-        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
-          {t('quickActions')}
-        </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Link
-            to="/shopkeeper/ai-assistant"
-            className="p-3.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 font-bold text-xs sm:text-sm flex items-center gap-2.5 transition"
-          >
-            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
-              <Mic className="w-4 h-4" />
-            </div>
-            <div>
-              <span>{t('actionVoiceEntry')}</span>
-              <span className="text-[10px] text-emerald-700 block font-normal">
-                {language === 'te' ? 'నోటితో చెప్పండి' : language === 'hi' ? 'बोलकर एंट्री' : 'Speak to record'}
-              </span>
-            </div>
-          </Link>
+        {/* QUICK ACTIONS ROW */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+            {t('quickActions')}
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <Link
+              to="/shopkeeper/mana-ai"
+              className="p-3 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 hover:bg-emerald-100 border-2 border-emerald-400/60 text-slate-900 font-bold text-xs sm:text-sm flex items-center gap-2 transition shadow-sm"
+            >
+              <div className="w-8 h-8 rounded-xl bg-slate-900 text-emerald-400 flex items-center justify-center shrink-0">
+                <Bot className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="flex items-center gap-1 text-slate-900">
+                  Mana-AI <span className="bg-emerald-600 text-white text-[8px] px-1 rounded font-black">AI</span>
+                </span>
+                <span className="text-[10px] text-emerald-800 block font-normal">
+                  {language === 'te' ? 'వ్యాపార PDF' : language === 'hi' ? 'PDF रिपोर्ट' : 'Ask & PDFs'}
+                </span>
+              </div>
+            </Link>
+
+            <Link
+              to="/shopkeeper/ai-assistant"
+              className="p-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 font-bold text-xs sm:text-sm flex items-center gap-2 transition"
+            >
+              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                <Mic className="w-4 h-4" />
+              </div>
+              <div>
+                <span>{t('actionVoiceEntry')}</span>
+                <span className="text-[10px] text-emerald-700 block font-normal">
+                  {language === 'te' ? 'నోటితో చెప్పండి' : language === 'hi' ? 'बोलकर एंट्री' : 'Voice Restock'}
+                </span>
+              </div>
+            </Link>
 
           <Link
             to="/shopkeeper/khata"

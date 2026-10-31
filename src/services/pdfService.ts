@@ -297,6 +297,271 @@ export class PDFService {
     const filename = `VyaparAI_Business_Report_${Date.now()}.pdf`;
     doc.save(filename);
   }
+
+  /**
+   * Generate Stock Audit & Inventory Valuation PDF
+   */
+  public generateStockAuditPDF(inventory: any[], shop: Shop, customTitle?: string): void {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const primaryColor = [15, 23, 42]; // Slate 900
+    const brandGreen = [5, 150, 105]; // Emerald 600
+    const textDark = [30, 41, 59];
+    const textMuted = [100, 116, 139];
+
+    // Header bar
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, 210, 36, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(255, 255, 255);
+    doc.text(shop.name, 14, 16);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(203, 213, 225);
+    doc.text(customTitle || 'Live Inventory Audit & Stock Valuation Report', 14, 24);
+    doc.text(
+      `Audit Date: ${new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`,
+      14,
+      30
+    );
+
+    // KPI Summary
+    const totalItems = inventory.length;
+    const totalUnits = inventory.reduce((sum, item) => sum + (item.quantity || 0), 0);
+    const totalValue = inventory.reduce((sum, item) => sum + (item.quantity * item.price || 0), 0);
+    const lowStockCount = inventory.filter((i) => i.quantity <= (i.minStockLevel || 5)).length;
+
+    const cardY = 44;
+    const cardW = 42;
+    const cardH = 20;
+
+    // 1. Total Products
+    doc.setFillColor(241, 245, 249);
+    doc.roundedRect(14, cardY, cardW, cardH, 2, 2, 'FD');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text('TOTAL PRODUCTS', 18, cardY + 6);
+    doc.setFontSize(12);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`${totalItems} SKUs`, 18, cardY + 14);
+
+    // 2. Total Units in Store
+    doc.setFillColor(236, 253, 245);
+    doc.roundedRect(61, cardY, cardW, cardH, 2, 2, 'FD');
+    doc.setFontSize(7.5);
+    doc.setTextColor(5, 150, 105);
+    doc.text('STOCK UNITS', 65, cardY + 6);
+    doc.setFontSize(12);
+    doc.setTextColor(6, 95, 70);
+    doc.text(`${totalUnits} Units`, 65, cardY + 14);
+
+    // 3. Inventory Value
+    doc.setFillColor(239, 246, 255);
+    doc.roundedRect(108, cardY, cardW, cardH, 2, 2, 'FD');
+    doc.setFontSize(7.5);
+    doc.setTextColor(37, 99, 235);
+    doc.text('ESTIMATED VALUATION', 112, cardY + 6);
+    doc.setFontSize(12);
+    doc.setTextColor(30, 64, 175);
+    doc.text(`Rs. ${totalValue.toLocaleString('en-IN')}`, 112, cardY + 14);
+
+    // 4. Low Stock Alert
+    doc.setFillColor(254, 242, 242);
+    doc.roundedRect(155, cardY, cardW, cardH, 2, 2, 'FD');
+    doc.setFontSize(7.5);
+    doc.setTextColor(220, 38, 38);
+    doc.text('REORDER NEEDED', 159, cardY + 6);
+    doc.setFontSize(12);
+    doc.setTextColor(153, 27, 27);
+    doc.text(`${lowStockCount} Items Low`, 159, cardY + 14);
+
+    // Table Header
+    let y = 74;
+    doc.setFillColor(241, 245, 249);
+    doc.rect(14, y, 182, 8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+
+    doc.text('Product Name', 18, y + 5.5);
+    doc.text('Category', 75, y + 5.5);
+    doc.text('Qty', 120, y + 5.5);
+    doc.text('Price (Rs.)', 142, y + 5.5);
+    doc.text('Total (Rs.)', 165, y + 5.5);
+
+    y += 12;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+
+    inventory.forEach((item) => {
+      if (y > 270) {
+        doc.addPage();
+        y = 20;
+      }
+
+      const itemTotal = item.quantity * item.price;
+      const isLow = item.quantity <= (item.minStockLevel || 5);
+
+      if (isLow) {
+        doc.setTextColor(220, 38, 38);
+      } else {
+        doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+      }
+
+      doc.text(item.productName.substring(0, 32), 18, y);
+      doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
+      doc.text((item.category || 'General').substring(0, 24), 75, y);
+
+      if (isLow) {
+        doc.setTextColor(220, 38, 38);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${item.quantity} ${item.unit || ''} (LOW)`, 120, y);
+        doc.setFont('helvetica', 'normal');
+      } else {
+        doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+        doc.text(`${item.quantity} ${item.unit || ''}`, 120, y);
+      }
+
+      doc.text(`Rs. ${item.price}`, 142, y);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Rs. ${itemTotal.toLocaleString('en-IN')}`, 165, y);
+      doc.setFont('helvetica', 'normal');
+
+      doc.setDrawColor(241, 245, 249);
+      doc.line(14, y + 2.5, 196, y + 2.5);
+      y += 6.5;
+    });
+
+    // Footer
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7.5);
+    doc.setTextColor(148, 163, 184);
+    doc.text(
+      'Generated by Mana-AI • AI-Powered Smart Local Commerce Document Engine',
+      14,
+      285
+    );
+
+    const filename = `Stock_Audit_${Date.now()}.pdf`;
+    doc.save(filename);
+  }
+
+  /**
+   * Generate Generic Dynamic Document PDF requested by Mana-AI
+   */
+  public generateCustomAIPDF(data: {
+    title: string;
+    subtitle: string;
+    summaryPoints: string[];
+    tableHeaders?: string[];
+    tableRows?: string[][];
+    shop: Shop;
+  }): void {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const { title, subtitle, summaryPoints, tableHeaders, tableRows, shop } = data;
+
+    // Header bar
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, 210, 36, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    doc.text(shop.name, 14, 15);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(203, 213, 225);
+    doc.text(title, 14, 23);
+    doc.text(`Report Period: ${subtitle} | Generated by Mana-AI Copilot`, 14, 29);
+
+    // Summary Box
+    let y = 46;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Executive Summary & Insights', 14, y);
+
+    y += 5;
+    const boxHeight = Math.max(24, summaryPoints.length * 7 + 8);
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(14, y, 182, boxHeight, 2, 2, 'FD');
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(51, 65, 85);
+
+    summaryPoints.forEach((point, idx) => {
+      doc.text(`• ${point}`, 18, y + 7 + idx * 7);
+    });
+
+    y += boxHeight + 10;
+
+    // Optional Table
+    if (tableHeaders && tableRows && tableRows.length > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.text('Detailed Breakdown', 14, y);
+
+      y += 5;
+      doc.setFillColor(241, 245, 249);
+      doc.rect(14, y, 182, 8, 'F');
+      doc.setFontSize(8);
+      doc.setTextColor(30, 41, 59);
+
+      const colWidth = 182 / tableHeaders.length;
+      tableHeaders.forEach((th, idx) => {
+        doc.text(th, 16 + idx * colWidth, y + 5.5);
+      });
+
+      y += 11;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+
+      tableRows.forEach((row) => {
+        if (y > 270) {
+          doc.addPage();
+          y = 20;
+        }
+
+        row.forEach((cell, idx) => {
+          doc.text(String(cell).substring(0, 30), 16 + idx * colWidth, y);
+        });
+
+        doc.setDrawColor(241, 245, 249);
+        doc.line(14, y + 2.5, 196, y + 2.5);
+        y += 7;
+      });
+    }
+
+    // Footer
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7.5);
+    doc.setTextColor(148, 163, 184);
+    doc.text(
+      'Document automatically prepared by Mana-AI Business Intelligence • Mana Kirana Platform',
+      14,
+      285
+    );
+
+    const filename = `${title.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.pdf`;
+    doc.save(filename);
+  }
 }
 
 export const pdfService = new PDFService();
