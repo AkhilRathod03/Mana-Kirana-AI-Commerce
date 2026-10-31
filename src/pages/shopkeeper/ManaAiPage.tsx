@@ -94,7 +94,7 @@ Ask me anything about your shop:
   const [config, setConfig] = useState<ManaAIConfig>(manaAiService.getConfig());
   const [savedConfigNotice, setSavedConfigNotice] = useState(false);
 
-  // Speech Recognition & TTS
+  // Speech Recognition & TTS State
   const [isListening, setIsListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState('');
   const [speechError, setSpeechError] = useState<string | null>(null);
@@ -103,6 +103,9 @@ Ask me anything about your shop:
   );
   const [isSpeakingId, setIsSpeakingId] = useState<string | null>(null);
 
+  const transcriptRef = useRef<string>('');
+  const hasSubmittedRef = useRef<boolean>(false);
+  const silenceTimerRef = useRef<any>(null);
   const recognitionRef = useRef<any>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -124,6 +127,9 @@ Ask me anything about your shop:
 
   useEffect(() => {
     return () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
@@ -136,6 +142,13 @@ Ask me anything about your shop:
   }, []);
 
   const handleSend = async (textToSend?: string) => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    transcriptRef.current = '';
+    hasSubmittedRef.current = true;
+
     const raw = (textToSend || input).trim();
     if (!raw) return;
 
@@ -174,6 +187,33 @@ Ask me anything about your shop:
     }
   };
 
+  // Commit Speech Handler (Called when pause detected, final event fired, or user clicks Stop/Send)
+  const commitSpeech = (forcedText?: string) => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    if (hasSubmittedRef.current) return;
+
+    const toSend = (forcedText || transcriptRef.current || input).trim();
+    if (!toSend) {
+      setIsListening(false);
+      return;
+    }
+
+    hasSubmittedRef.current = true;
+    setIsListening(false);
+    setInterimTranscript('');
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch {}
+    }
+
+    handleSend(toSend);
+  };
+
   // Web Speech API Voice Recognition
   const startListening = () => {
     const SpeechRecognition =
@@ -182,19 +222,33 @@ Ask me anything about your shop:
     if (!SpeechRecognition) {
       setSpeechError(
         language === 'te'
-          ? 'మీ బ్రౌజర్ లో వాయిస్ సపోర్ట్ లేదు. దయచేసి Google Chrome వాడండి.'
+          ? 'మీ బ్రౌజర్ లో వాయిస్ సపోర్ట్ లేదు. దయచేసి Google Chrome లేదా Edge వాడండి.'
+          : language === 'hi'
+          ? 'आपके ब्राउज़र में वॉइस सपोर्ट नहीं है। कृपया Google Chrome उपयोग करें।'
           : 'Voice input requires Google Chrome or Microsoft Edge.'
       );
       return;
     }
 
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+
+    transcriptRef.current = '';
+    hasSubmittedRef.current = false;
+    setInterimTranscript('');
+    setSpeechError(null);
+
     try {
       if (recognitionRef.current) {
-        recognitionRef.current.abort();
+        try {
+          recognitionRef.current.abort();
+        } catch {}
       }
 
       const recognition = new SpeechRecognition();
-      recognition.continuous = false;
+      recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = selectedVoiceLang;
       recognitionRef.current = recognition;
@@ -202,50 +256,94 @@ Ask me anything about your shop:
       recognition.onstart = () => {
         setIsListening(true);
         setSpeechError(null);
-        setInterimTranscript('');
       };
 
       recognition.onresult = (event: any) => {
-        let interim = '';
-        let final = '';
+        let fullTranscript = '';
+        let hasFinalResult = false;
 
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
+        for (let i = 0; i < event.results.length; ++i) {
+          const part = event.results[i][0].transcript;
+          fullTranscript += part;
           if (event.results[i].isFinal) {
-            final += event.results[i][0].transcript;
-          } else {
-            interim += event.results[i][0].transcript;
+            hasFinalResult = true;
           }
         }
 
-        if (interim) setInterimTranscript(interim);
-        if (final) {
-          setInterimTranscript('');
-          setIsListening(false);
-          handleSend(final.trim());
+        const trimmed = fullTranscript.trim();
+        if (trimmed) {
+          transcriptRef.current = trimmed;
+          setInterimTranscript(trimmed);
+          setInput(trimmed); // Real-time feedback into input box!
+        }
+
+        // Auto-commit timer after natural pause in speech
+        if (trimmed) {
+          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = setTimeout(
+            () => {
+              commitSpeech();
+            },
+            hasFinalResult ? 900 : 1800
+          );
         }
       };
 
       recognition.onerror = (event: any) => {
-        setIsListening(false);
-        if (event.error !== 'no-speech') {
-          setSpeechError('Microphone input error. Please try speaking again.');
+        console.warn('Speech recognition error:', event.error);
+        if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+          setIsListening(false);
+          setSpeechError(
+            language === 'te'
+              ? 'మైక్రోఫోన్ అనుమతి నిరాకరించబడింది. బ్రౌజర్ లో మైక్ పర్మిషన్ Allow చేయండి.'
+              : language === 'hi'
+              ? 'माइक्रोफ़ोन अनुमति नहीं मिली। कृपया ब्राउज़र में अनुमति दें।'
+              : 'Microphone permission denied. Please allow microphone access in your browser.'
+          );
+        } else if (event.error === 'no-speech') {
+          if (!transcriptRef.current && !input) {
+            setIsListening(false);
+            setSpeechError(
+              language === 'te'
+                ? 'ఏమీ వినబడలేదు. దయచేసి మైక్ దగ్గర స్పష్టంగా మాట్లాడండి.'
+                : language === 'hi'
+                ? 'कोई आवाज़ सुनाई नहीं दी। कृपया माइक के पास साफ़ बोलें।'
+                : 'No speech detected. Please speak clearly into your microphone.'
+            );
+          }
+        } else if (event.error !== 'aborted') {
+          setIsListening(false);
         }
       };
 
-      recognition.onend = () => setIsListening(false);
+      recognition.onend = () => {
+        setIsListening(false);
+        if (transcriptRef.current && !hasSubmittedRef.current) {
+          commitSpeech();
+        }
+      };
+
       recognition.start();
-    } catch {
+    } catch (err) {
+      console.error('Failed to start speech recognition:', err);
       setIsListening(false);
     }
   };
 
   const stopListening = () => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    setIsListening(false);
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
       } catch {}
     }
-    setIsListening(false);
+    if (transcriptRef.current && !hasSubmittedRef.current) {
+      commitSpeech();
+    }
   };
 
   // Text-To-Speech (TTS)
@@ -543,20 +641,63 @@ Ask me anything about your shop:
 
         {/* INPUT BAR */}
         <div className="p-3 bg-white border-t border-slate-200 space-y-2">
-          {/* Active Recording Pill */}
+          {/* Active Recording Banner with Live Spoken Words */}
           {isListening && (
-            <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-emerald-100/80 border border-emerald-300 text-emerald-950 text-xs font-bold">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-red-600 animate-ping"></span>
-                <span>Recording voice in {selectedVoiceLang.toUpperCase()}...</span>
+            <div className="flex items-center justify-between p-2.5 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 text-xs shadow-sm animate-fadeIn">
+              <div className="flex items-center gap-2.5 overflow-hidden">
+                <span className="relative flex h-3 w-3 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600"></span>
+                </span>
+                <div className="truncate">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                    <span>
+                      {language === 'te'
+                        ? 'వింటోంది... మాట్లాడండి'
+                        : language === 'hi'
+                        ? 'सुन रहा हूँ... बोलिए'
+                        : 'Listening... Speak now'}
+                    </span>
+                    <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.2 rounded font-extrabold uppercase">
+                      {selectedVoiceLang}
+                    </span>
+                  </div>
+                  {interimTranscript && (
+                    <p className="text-xs font-semibold text-emerald-800 truncate mt-0.5">
+                      "{interimTranscript}"
+                    </p>
+                  )}
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={stopListening}
-                className="text-[11px] bg-red-600 text-white px-2 py-0.5 rounded-lg"
-              >
-                Stop
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                <button
+                  type="button"
+                  onClick={() => commitSpeech()}
+                  className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl font-bold shadow-sm transition flex items-center gap-1"
+                >
+                  <span>{language === 'te' ? 'పంపు' : language === 'hi' ? 'भेजें' : 'Send'}</span>
+                  <Send className="w-3 h-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+                    setIsListening(false);
+                    transcriptRef.current = '';
+                    setInput('');
+                    setInterimTranscript('');
+                    if (recognitionRef.current) {
+                      try {
+                        recognitionRef.current.abort();
+                      } catch {}
+                    }
+                  }}
+                  className="text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 px-2.5 py-1.5 rounded-xl font-semibold transition"
+                  title="Cancel"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           )}
 

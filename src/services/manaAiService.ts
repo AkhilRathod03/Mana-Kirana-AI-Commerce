@@ -113,11 +113,24 @@ class ManaAIService {
     const { shop, inventory, customers, orders, transactions, expenses, preferredLang } = data;
     const isExplicitTelugu = /[\u0C00-\u0C7F]/.test(rawText);
     const isExplicitHindi = /[\u0900-\u097F]/.test(rawText);
+    const isRomanizedTelugu =
+      lower.includes('kavali') ||
+      lower.includes('ka vali') ||
+      lower.includes('ninnadi') ||
+      lower.includes('ninnati') ||
+      lower.includes('munnadi') ||
+      lower.includes('monnati') ||
+      lower.includes('saruku') ||
+      lower.includes('sarukulu') ||
+      lower.includes('ivvu') ||
+      lower.includes('ivvandi') ||
+      lower.includes('entha') ||
+      lower.includes('ayindi');
 
-    // If preferredLang is provided, respect it; otherwise auto-detect from script
+    // If preferredLang is provided, respect it; otherwise auto-detect from script or Romanized Telugu
     const isTelugu =
       preferredLang === 'te' ||
-      (preferredLang !== 'en' && preferredLang !== 'hi' && isExplicitTelugu);
+      (preferredLang !== 'en' && preferredLang !== 'hi' && (isExplicitTelugu || isRomanizedTelugu));
     const isHindi =
       preferredLang === 'hi' ||
       (preferredLang !== 'en' && preferredLang !== 'te' && isExplicitHindi && !isExplicitTelugu);
@@ -127,6 +140,15 @@ class ManaAIService {
       lower.includes('report') ||
       lower.includes('download') ||
       lower.includes('statement') ||
+      lower.includes('generate') ||
+      lower.includes('create') ||
+      lower.includes('kavali') ||
+      lower.includes('ka vali') ||
+      lower.includes('ivvu') ||
+      lower.includes('ivvandi') ||
+      lower.includes('chupinchu') ||
+      lower.includes('choodu') ||
+      lower.includes('chudu') ||
       lower.includes('పిడిఎఫ్') ||
       lower.includes('పీడీఎఫ్') ||
       lower.includes('పిడిఎప్') ||
@@ -156,12 +178,10 @@ class ManaAIService {
       lower.includes('डाउनलोड');
 
     // 1. SALES / REVENUE / YESTERDAY'S SALES / EXPENSES
-    const isSalesQuery =
+    const hasSalesKeyword =
       lower.includes('sale') ||
       lower.includes('sales') ||
-      lower.includes('yesterday') ||
       lower.includes('revenue') ||
-      lower.includes('today') ||
       lower.includes('profit') ||
       lower.includes('expense') ||
       lower.includes('income') ||
@@ -178,9 +198,6 @@ class ManaAIService {
       lower.includes('వ్యాపారం') ||
       lower.includes('బిజినెస్') ||
       lower.includes('కలెక్షన్') ||
-      lower.includes('నిన్న') ||
-      lower.includes('నిన్నటి') ||
-      lower.includes('ఈరోజు') ||
       lower.includes('లాభం') ||
       lower.includes('ఖర్చు') ||
       lower.includes('ఖర్చులు') ||
@@ -191,7 +208,54 @@ class ManaAIService {
       lower.includes('मुनाफा') ||
       lower.includes('खर्च') ||
       lower.includes('कितना हुआ') ||
-      lower.includes('कल');
+      lower.includes('ammakam') ||
+      lower.includes('ammakalu') ||
+      lower.includes('vyaparam') ||
+      lower.includes('entha ayindi') ||
+      lower.includes('entha vachindi');
+
+    const hasStockKeyword =
+      lower.includes('stock') ||
+      lower.includes('stocks') ||
+      lower.includes('inventory') ||
+      lower.includes('wholesaler') ||
+      lower.includes('item') ||
+      lower.includes('items') ||
+      lower.includes('arrival') ||
+      lower.includes('reorder') ||
+      lower.includes('సరుకు') ||
+      lower.includes('సరుకులు') ||
+      lower.includes('నిల్వ') ||
+      lower.includes('నిల్వలు') ||
+      lower.includes('స్టాక్') ||
+      lower.includes('స్టాక్స్') ||
+      lower.includes('సామాను') ||
+      lower.includes('సరుకులు వచ్చాయి') ||
+      lower.includes('మాల్') ||
+      lower.includes('सामान') ||
+      lower.includes('स्टॉक') ||
+      lower.includes('माल') ||
+      lower.includes('maal') ||
+      lower.includes('saruku') ||
+      lower.includes('sarukulu') ||
+      lower.includes('nilva') ||
+      lower.includes('nilvalu') ||
+      lower.includes('samanu') ||
+      lower.includes('saraku');
+
+    const isSalesQuery =
+      hasSalesKeyword ||
+      (!hasStockKeyword &&
+        (lower.includes('yesterday') ||
+          lower.includes('today') ||
+          lower.includes('నిన్న') ||
+          lower.includes('నిన్నటి') ||
+          lower.includes('ఈరోజు') ||
+          lower.includes('कल') ||
+          lower.includes('ninnati') ||
+          lower.includes('ninnadi') ||
+          lower.includes('monnati') ||
+          lower.includes('munnadi')));
 
     if (isSalesQuery) {
       const todayTotal = transactions.reduce((sum, t) => sum + t.amount, 0) + 2420;
@@ -275,12 +339,7 @@ ${wantsPDF ? '📄 *Your complete Business Financial Audit PDF is ready for down
 
     // 2. STOCK QUESTIONS / UPDATES YESTERDAY / LOW STOCK
     const isStockQuery =
-      lower.includes('stock') ||
-      lower.includes('stocks') ||
-      lower.includes('inventory') ||
-      lower.includes('wholesaler') ||
-      lower.includes('item') ||
-      lower.includes('items') ||
+      hasStockKeyword ||
       lower.includes('arrival') ||
       lower.includes('reorder') ||
       lower.includes('సరుకు') ||
@@ -296,7 +355,9 @@ ${wantsPDF ? '📄 *Your complete Business Financial Audit PDF is ready for down
       lower.includes('सामान') ||
       lower.includes('स्टॉक') ||
       lower.includes('माल') ||
-      lower.includes('maal');
+      lower.includes('maal') ||
+      lower.includes('khatam') ||
+      lower.includes('khali');
 
     if (isStockQuery) {
       const lowStockItems = inventory.filter((i) => i.quantity <= i.minStockLevel);
