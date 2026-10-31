@@ -50,7 +50,8 @@ class ManaAIService {
    */
   public async askShopkeeperCopilot(
     question: string,
-    shopId: string = 'shop-1'
+    shopId: string = 'shop-1',
+    preferredLang?: 'en' | 'te' | 'hi'
   ): Promise<ManaAIMessage> {
     const text = question.trim();
     const lower = text.toLowerCase();
@@ -73,6 +74,7 @@ class ManaAIService {
           orders,
           transactions,
           expenses,
+          preferredLang,
         });
         if (liveRes) return liveRes;
       } catch (err) {
@@ -88,6 +90,7 @@ class ManaAIService {
       orders,
       transactions,
       expenses,
+      preferredLang,
     });
   }
 
@@ -104,11 +107,20 @@ class ManaAIService {
       orders: Order[];
       transactions: Transaction[];
       expenses: Expense[];
+      preferredLang?: 'en' | 'te' | 'hi';
     }
   ): ManaAIMessage {
-    const { shop, inventory, customers, orders, transactions, expenses } = data;
-    const isTelugu = /[\u0C00-\u0C7F]/.test(rawText);
-    const isHindi = /[\u0900-\u097F]/.test(rawText);
+    const { shop, inventory, customers, orders, transactions, expenses, preferredLang } = data;
+    const isExplicitTelugu = /[\u0C00-\u0C7F]/.test(rawText);
+    const isExplicitHindi = /[\u0900-\u097F]/.test(rawText);
+
+    // If preferredLang is provided, respect it; otherwise auto-detect from script
+    const isTelugu =
+      preferredLang === 'te' ||
+      (preferredLang !== 'en' && preferredLang !== 'hi' && isExplicitTelugu);
+    const isHindi =
+      preferredLang === 'hi' ||
+      (preferredLang !== 'en' && preferredLang !== 'te' && isExplicitHindi && !isExplicitTelugu);
 
     const wantsPDF =
       lower.includes('pdf') ||
@@ -313,6 +325,20 @@ ${wantsPDF ? '📄 *Your complete Business Financial Audit PDF is ready for down
             }
 
 గత 48 గంటల్లో అమ్ముడైనవి: **7 ${matchedItem.unit}** (ఆదాయం: ₹${7 * matchedItem.price}).`
+          : isHindi
+          ? `📊 **${matchedItem.productName} का स्टॉक विवरण:**
+• उपलब्ध स्टॉक: **${matchedItem.quantity} ${matchedItem.unit}**
+• प्रति यूनिट दर: **₹${matchedItem.price}** (कुल मूल्य: ₹${itemValuation})
+• न्यूनतम चेतावनी स्तर: **${matchedItem.minStockLevel}**
+• वर्तमान स्थिति: ${
+              matchedItem.quantity <= 0
+                ? '🔴 **स्टॉक खत्म (Out of Stock)**'
+                : matchedItem.quantity <= matchedItem.minStockLevel
+                ? '⚠️ **स्टॉक कम है — तुरंत मंगाने की जरूरत**'
+                : '🟢 **पर्याप्त स्टॉक मौजूद है**'
+            }
+
+पिछले 48 घंटों में बिक्री: **7 ${matchedItem.unit}** (कुल आय: ₹${7 * matchedItem.price})।`
           : `📊 **Stock Status for ${matchedItem.productName}:**
 • Current Available Stock: **${matchedItem.quantity} ${matchedItem.unit}**
 • Unit Price: **₹${matchedItem.price}** (Total valuation: ₹${itemValuation})
@@ -335,9 +361,21 @@ Estimated units sold in past 48 hours: **7 ${matchedItem.unit}** (Revenue genera
           actionCard: wantsPDF
             ? {
                 type: 'pdf_download',
-                title: isTelugu ? `స్టాక్ ఆడిట్ PDF — ${matchedItem.productName}` : `Stock Audit PDF — ${matchedItem.productName}`,
-                description: `Full store inventory valuation including ${matchedItem.productName}`,
-                buttonLabel: isTelugu ? 'డౌన్‌లోడ్ స్టాక్ ఆడిట్ PDF' : 'Download Stock Audit PDF',
+                title: isTelugu
+                  ? `స్టాక్ ఆడిట్ PDF — ${matchedItem.productName}`
+                  : isHindi
+                  ? `स्टॉक ऑडिट PDF — ${matchedItem.productName}`
+                  : `Stock Audit PDF — ${matchedItem.productName}`,
+                description: isTelugu
+                  ? `${matchedItem.productName} తో సహా పూర్తి స్టోర్ ఇన్వెంటరీ నివేదిక`
+                  : isHindi
+                  ? `${matchedItem.productName} सहित दुकान का पूरा स्टॉक ऑडिट`
+                  : `Full store inventory valuation including ${matchedItem.productName}`,
+                buttonLabel: isTelugu
+                  ? 'డౌన్‌లోడ్ స్టాక్ ఆడిట్ PDF'
+                  : isHindi
+                  ? 'डाउनलोड स्टॉक ऑडिट PDF'
+                  : 'Download Stock Audit PDF',
                 pdfAction: 'stock_audit',
                 pdfPayload: { inventory, shop, title: `Inventory Status — ${matchedItem.productName}` },
               }
@@ -357,6 +395,17 @@ Estimated units sold in past 48 hours: **7 ${matchedItem.unit}** (Revenue genera
 ${lowStockItems.map((i) => `  - **${i.productName}**: కేవలం **${i.quantity} ${i.unit}** మాత్రమే మిగిలి ఉన్నాయి (కనీసం: ${i.minStockLevel})`).join('\n')}
 
 📄 *హోల్‌సేలర్ ఆర్డర్ మరియు మొత్తం స్టాక్ ఆడిట్ PDF నివేదిక క్రింద అందుబాటులో ఉంది:*`
+        : isHindi
+        ? `📦 **Mana-AI दुकान स्टॉक एवं सामान का विश्लेषण:**
+• कुल सूचीबद्ध सामान: **${inventory.length} प्रकार** (${totalUnits} कुल यूनिट्स)
+• कुल इन्वेंट्री मूल्य: **₹${totalInventoryValue.toLocaleString('en-IN')}**
+• नए सामान की आवक:
+  - कल: **10 साबुन** और **20 दूध पैकेट** दुकान में आए।
+  - आज: **5 तेल पैकेट** और **8 बिस्किट बॉक्स** रीस्टॉक हुए।
+• ⚠️ **कम स्टॉक चेतावनी (${lowStockItems.length} सामान):**
+${lowStockItems.map((i) => `  - **${i.productName}**: केवल **${i.quantity} ${i.unit}** बचे हैं (न्यूनतम स्तर: ${i.minStockLevel})`).join('\n')}
+
+📄 *होलसेलर री-ऑर्डर और पूरा स्टॉक ऑडिट PDF नीचे तैयार है:*`
         : `📦 **Mana-AI Store Inventory Analysis:**
 • Total Active Products: **${inventory.length} SKUs** (${totalUnits} total units in stock)
 • Total Inventory Value: **₹${totalInventoryValue.toLocaleString('en-IN')}**
@@ -375,11 +424,21 @@ ${wantsPDF ? '📄 *I have compiled the complete Inventory Valuation and Stock A
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         actionCard: {
           type: 'pdf_download',
-          title: isTelugu ? 'దుకాణం సరుకుల నిల్వ ఆడిట్ PDF' : 'Store Inventory & Stock Audit PDF',
+          title: isTelugu
+            ? 'దుకాణం సరుకుల నిల్వ ఆడిట్ PDF'
+            : isHindi
+            ? 'दुकान सामान एवं स्टॉक ऑडिट PDF'
+            : 'Store Inventory & Stock Audit PDF',
           description: isTelugu
             ? `${inventory.length} సరుకులు • మొత్తం విలువ: ₹${totalInventoryValue.toLocaleString('en-IN')}`
+            : isHindi
+            ? `${inventory.length} सामान • कुल मूल्य: ₹${totalInventoryValue.toLocaleString('en-IN')}`
             : `${inventory.length} items cataloged • ₹${totalInventoryValue.toLocaleString('en-IN')} current stock worth`,
-          buttonLabel: isTelugu ? 'డౌన్‌లోడ్ స్టాక్ ఆడిట్ PDF' : 'Download Stock Audit PDF',
+          buttonLabel: isTelugu
+            ? 'డౌన్‌లోడ్ స్టాక్ ఆడిట్ PDF'
+            : isHindi
+            ? 'डाउनलोड स्टॉक ऑडिट PDF'
+            : 'Download Stock Audit PDF',
           pdfAction: 'stock_audit',
           pdfPayload: { inventory, shop, title: 'Store Stock & Valuation Audit Report' },
         },
@@ -427,6 +486,16 @@ ${wantsPDF ? '📄 *I have compiled the complete Inventory Valuation and Stock A
 • చెల్లింపు విశ్వసనీయత: **చాలా మంచిది (Good)**
 
 📄 *${targetCustomer.name} పూర్తి ఖాతా స్టేట్‌మెంట్ PDF నివేదిక క్రింద సిద్ధంగా ఉంది:*`
+        : isHindi
+        ? `👤 **ग्राहक खाता विवरण: ${targetCustomer.name}** (${targetCustomer.phone})
+• कुल खरीदारी: **₹${totalPurchases.toLocaleString('en-IN')}**
+• ग्राहक द्वारा जमा भुगतान: **₹${totalPaid.toLocaleString('en-IN')}**
+• वर्तमान बकाया उधार (Due): **₹${targetCustomer.khataBalance.toLocaleString('en-IN')}**
+• पता: ${targetCustomer.locality}
+• मुख्य पसंदीदा सामान: **लाइफबॉय साबुन, कुकिंग तेल, दूध**
+• भुगतान ट्रैक रिकॉर्ड: **बहुत अच्छा (समय पर भुगतान)**
+
+📄 *${targetCustomer.name} का पूरा खाता स्टेटमेंट PDF नीचे तैयार है:*`
         : `👤 **Customer Profile: ${targetCustomer.name}** (${targetCustomer.phone})
 • Total Purchases Recorded: **₹${totalPurchases.toLocaleString('en-IN')}**
 • Total Payments Made (జమ): **₹${totalPaid.toLocaleString('en-IN')}**
@@ -444,11 +513,21 @@ ${wantsPDF ? `📄 *I have compiled ${targetCustomer.name}'s complete transactio
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         actionCard: {
           type: 'pdf_download',
-          title: isTelugu ? `${targetCustomer.name} — ఖాతా స్టేట్‌మెంట్ PDF` : `${targetCustomer.name} — Khata Statement PDF`,
+          title: isTelugu
+            ? `${targetCustomer.name} — ఖాతా స్టేట్‌మెంట్ PDF`
+            : isHindi
+            ? `${targetCustomer.name} — खाता स्टेटमेंट PDF`
+            : `${targetCustomer.name} — Khata Statement PDF`,
           description: isTelugu
             ? `చెల్లించాల్సిన బాకీ: ₹${targetCustomer.khataBalance} • ${customerKhataTx.length} లావాదేవీలు`
+            : isHindi
+            ? `बकाया उधार: ₹${targetCustomer.khataBalance} • ${customerKhataTx.length} लेन-देन`
             : `Outstanding Balance: ₹${targetCustomer.khataBalance} • ${customerKhataTx.length} transactions`,
-          buttonLabel: isTelugu ? 'డౌన్‌లోడ్ ఖాతా స్టేట్‌మెంట్ PDF' : 'Download Khata Statement PDF',
+          buttonLabel: isTelugu
+            ? 'డౌన్‌లోడ్ ఖాతా స్టేట్‌మెంట్ PDF'
+            : isHindi
+            ? 'डाउनलोड खाता स्टेटमेंट PDF'
+            : 'Download Khata Statement PDF',
           pdfAction: 'customer_statement',
           pdfPayload: { customer: targetCustomer, transactions: customerKhataTx, shop },
         },
@@ -468,6 +547,13 @@ ${wantsPDF ? `📄 *I have compiled ${targetCustomer.name}'s complete transactio
 • నేటి అమ్మకాలు: **₹${todayTotal.toLocaleString('en-IN')}**
 
 క్రింది బటన్ నొక్కి డౌన్‌లోడ్ చేసుకోండి:`
+        : isHindi
+        ? `📄 **Mana-AI दुकान रिपोर्ट तैयार है:**
+आपकी दुकान **${shop.name}** (${shop.locality}, Hyderabad) का पूरा स्टॉक और बिक्री ऑडिट PDF तैयार है।
+• कुल सामान: **${inventory.length} प्रकार** (कुल मूल्य: ₹${totalInventoryValue.toLocaleString('en-IN')})
+• आज की बिक्री: **₹${todayTotal.toLocaleString('en-IN')}**
+
+नीचे दिए गए बटन पर क्लिक करके PDF डाउनलोड करें:`
         : `📄 **Mana-AI Store Report Prepared:**
 I have compiled the complete Store Operations, Stock Valuation, and Sales Summary into an official PDF document for **${shop.name}**.
 
@@ -480,9 +566,21 @@ Click below to download your document:`;
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         actionCard: {
           type: 'pdf_download',
-          title: isTelugu ? 'సంపూర్ణ స్టోర్ ఆపరేషన్స్ & స్టాక్ రిపోర్ట్ PDF' : 'Complete Store Business & Stock Audit PDF',
-          description: isTelugu ? `${shop.name} పూర్తి నివేదిక` : `Full overview report for ${shop.name}`,
-          buttonLabel: isTelugu ? 'డౌన్‌లోడ్ పూర్తి PDF రిపోర్ట్' : 'Download Complete PDF Report',
+          title: isTelugu
+            ? 'సంపూర్ణ స్టోర్ ఆపరేషన్స్ & స్టాక్ రిపోర్ట్ PDF'
+            : isHindi
+            ? 'दुकान का पूरा स्टॉक एवं बिक्री ऑडिट PDF'
+            : 'Complete Store Business & Stock Audit PDF',
+          description: isTelugu
+            ? `${shop.name} పూర్తి నివేదిక`
+            : isHindi
+            ? `${shop.name} पूरी रिपोर्ट`
+            : `Full overview report for ${shop.name}`,
+          buttonLabel: isTelugu
+            ? 'డౌన్‌లోడ్ పూర్తి PDF రిపోర్ట్'
+            : isHindi
+            ? 'डाउनलोड पूरी PDF रिपोर्ट'
+            : 'Download Complete PDF Report',
           pdfAction: 'stock_audit',
           pdfPayload: { inventory, shop, title: `${shop.name} Complete Operations Report` },
         },
@@ -501,6 +599,17 @@ Click below to download your document:`;
 4. *"హోల్‌సేలర్ నుండి ఏ వస్తువులు తెప్పించాలి?"*
 
 మీరు తెలుగు, హిందీ లేదా ఇంగ్లీషులో మాట్లాడటానికి క్రింది మైక్ బటన్ నొక్కండి!`
+      : isHindi
+      ? `🤖 **Mana-AI बिजनेस इंटेलिजेंस सलाहकार:**
+मैं आपकी दुकान **${shop.name}** के लाइव डेटाबेस से जुड़ा हुआ हूँ।
+
+आप मुझसे ऐसे प्रश्न पूछ सकते हैं:
+1. *"कल और आज की बिक्री कितनी हुई? मुझे PDF चाहिए"*
+2. *"रमेश कुमार का कितना उधार बाकी है? स्टेटमेंट PDF दो"*
+3. *"कल कौन सा स्टॉक आया या कौन सा सामान खत्म हो रहा है? स्टॉक PDF दो"*
+4. *"होलसेलर से इस हफ्ते कौन सा सामान मंगाना चाहिए?"*
+
+आप ऊपर दिए गए भाषा ड्रॉपडाउन से अपनी पसंदीदा भाषा चुन सकते हैं या नीचे माइक से बोल सकते हैं!`
       : `🤖 **Mana-AI Business Intelligence Assistant:**
 I am connected to your live store database (**${shop.name}**).
 
@@ -528,12 +637,19 @@ You can speak naturally in **Telugu, Hindi, or English** using the mic button be
     apiKey: string,
     context: any
   ): Promise<ManaAIMessage | null> {
+    const langInstruction =
+      context.preferredLang === 'te'
+        ? 'Respond strictly in Telugu (తెలుగు లిపి).'
+        : context.preferredLang === 'hi'
+        ? 'Respond strictly in Hindi (हिंदी).'
+        : 'If the user asks in Telugu or Hindi, respond in that language; otherwise respond in English.';
+
     const systemPrompt = `You are "Mana-AI", the executive business AI copilot for a local Indian Kirana shop named "${context.shop.name}" in ${context.shop.locality}.
 The store's current live state:
 - Products (${context.inventory.length} items): ${context.inventory.map((i: any) => `${i.productName} (Qty: ${i.quantity} ${i.unit}, Price: Rs.${i.price})`).join(', ')}
 - Customers (${context.customers.length}): ${context.customers.map((c: any) => `${c.name} (Khata balance due: Rs.${c.khataBalance})`).join(', ')}
 - Today's Sales: Rs. 4,280, Yesterday Sales: Rs. 3,950
-Answer the shopkeeper's question accurately based on this data. If they ask in Telugu or Hindi, respond in that language or English as appropriate. Keep answers practical, grounded, and concise.`;
+${langInstruction} Keep answers practical, grounded, and concise.`;
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     const payload = {

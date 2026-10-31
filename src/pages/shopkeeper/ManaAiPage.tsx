@@ -19,6 +19,8 @@ import {
   DollarSign,
   Key,
   Check,
+  Globe,
+  ChevronDown,
 } from 'lucide-react';
 import { manaAiService, ManaAIMessage, ManaAIConfig } from '../../services/manaAiService';
 import { storage } from '../../services/storageService';
@@ -26,13 +28,13 @@ import { useLanguage } from '../../context/LanguageContext';
 
 export const ManaAiPage: React.FC = () => {
   const shop = storage.getShopById('shop-1') || storage.getShops()[0];
-  const { t, language } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
 
-  const getWelcomeMessage = (): ManaAIMessage => ({
+  const getWelcomeMessage = (lang: 'en' | 'te' | 'hi' = language): ManaAIMessage => ({
     id: 'welcome-1',
     sender: 'assistant',
     text:
-      language === 'te'
+      lang === 'te'
         ? `నమస్కారం! నేను మీ దుకాణం వ్యక్తిగత సలహాదారు **Mana-AI** (మన-AI).
 మీ దుకాణం లైవ్ డేటా (సరుకుల నిల్వ, నిన్నటి/నేటి అమ్మకాలు, కస్టమర్ల ఖాతా ఉధార్) నాతో అనుసంధానించబడి ఉంది.
 
@@ -40,7 +42,7 @@ export const ManaAiPage: React.FC = () => {
 • *"నిన్న ఏ సరుకులు వచ్చాయి లేదా ఏవి అయిపోతున్నాయి? నాకు PDF నివేదిక కావాలి."*
 • *"రమేష్ కుమార్ ఈ నెల ఎంత ఖర్చు చేశాడు? స్టేట్‌మెంట్ PDF ఇవ్వు."*
 • *"నిన్నటి అమ్మకాలు మరియు ఖర్చుల పూర్తి PDF తయారు చేయి."*`
-        : language === 'hi'
+        : lang === 'hi'
         ? `नमस्ते! मैं आपकी दुकान का **Mana-AI** (हमारा-AI) बिजनेस सलाहकार हूँ।
 आपकी दुकान का लाइव स्टॉक, कल और आज की बिक्री, और ग्राहकों का खाता बही मेरे पास उपलब्ध है।
 
@@ -58,9 +60,24 @@ Ask me anything about your shop:
     timestamp: 'Just now',
     actionCard: {
       type: 'pdf_download',
-      title: 'Store Performance & Stock Audit PDF',
-      description: 'Instant overview of current inventory and sales health',
-      buttonLabel: 'Download Sample PDF Audit',
+      title:
+        lang === 'te'
+          ? 'స్టోర్ ఆడిట్ & స్టాక్ PDF'
+          : lang === 'hi'
+          ? 'दुकान का स्टॉक ऑडिट PDF'
+          : 'Store Performance & Stock Audit PDF',
+      description:
+        lang === 'te'
+          ? 'ప్రస్తుత సరుకుల నిల్వ మరియు అమ్మకాల పూర్తి నివేదిక'
+          : lang === 'hi'
+          ? 'दुकान के वर्तमान स्टॉक और बिक्री की समीक्षा'
+          : 'Instant overview of current inventory and sales health',
+      buttonLabel:
+        lang === 'te'
+          ? 'స్టాక్ ఆడిట్ PDF డౌన్‌లోడ్'
+          : lang === 'hi'
+          ? 'स्टॉक ऑडिट PDF डाउनलोड'
+          : 'Download Sample PDF Audit',
       pdfAction: 'stock_audit',
       pdfPayload: {
         inventory: storage.getInventory(shop.id),
@@ -70,7 +87,7 @@ Ask me anything about your shop:
     },
   });
 
-  const [messages, setMessages] = useState<ManaAIMessage[]>([getWelcomeMessage()]);
+  const [messages, setMessages] = useState<ManaAIMessage[]>([getWelcomeMessage(language)]);
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -88,6 +105,14 @@ Ask me anything about your shop:
 
   const recognitionRef = useRef<any>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const handleLanguageChange = (newLang: 'en' | 'te' | 'hi') => {
+    setLanguage(newLang);
+    setSelectedVoiceLang(newLang === 'te' ? 'te-IN' : newLang === 'hi' ? 'hi-IN' : 'en-IN');
+    if (messages.length <= 1) {
+      setMessages([getWelcomeMessage(newLang)]);
+    }
+  };
 
   useEffect(() => {
     setSelectedVoiceLang(language === 'te' ? 'te-IN' : language === 'hi' ? 'hi-IN' : 'en-IN');
@@ -127,7 +152,7 @@ Ask me anything about your shop:
     setIsProcessing(true);
 
     try {
-      const response = await manaAiService.askShopkeeperCopilot(raw, shop.id);
+      const response = await manaAiService.askShopkeeperCopilot(raw, shop.id, language);
       setMessages((prev) => [...prev, response]);
     } catch (e) {
       setMessages((prev) => [
@@ -135,7 +160,12 @@ Ask me anything about your shop:
         {
           id: `ai-err-${Date.now()}`,
           sender: 'assistant',
-          text: 'I ran into an issue connecting to the AI brain. Please try again or ask with different wording.',
+          text:
+            language === 'te'
+              ? 'AI బ్రెయిన్ కనెక్ట్ కావడంలో సమస్య వచ్చింది. దయచేసి మళ్ళీ ప్రయత్నించండి.'
+              : language === 'hi'
+              ? 'AI से संपर्क करने में समस्या आई। कृपया पुनः प्रयास करें।'
+              : 'I ran into an issue connecting to the AI brain. Please try again or ask with different wording.',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -248,62 +278,113 @@ Ask me anything about your shop:
 
   const samplePrompts = [
     {
-      category: 'Sales & PDF Report',
+      category:
+        language === 'te'
+          ? 'సేల్స్ & PDF రిపోర్ట్'
+          : language === 'hi'
+          ? 'बिक्री और PDF रिपोर्ट'
+          : 'Sales & PDF Report',
       icon: DollarSign,
-      text: "How much sales happened yesterday and today? Give me a PDF.",
-      langText: 'ఎంత సేల్స్ అయింది పిడిఎఫ్ కావాలి',
+      textEn: 'How much sales happened yesterday and today? Give me a PDF.',
+      textTe: 'ఎంత సేల్స్ అయింది పిడిఎఫ్ కావాలి',
+      textHi: 'कल और आज की कितनी बिक्री हुई? मुझे PDF चाहिए',
     },
     {
-      category: 'Stock & Wholesaler',
+      category:
+        language === 'te'
+          ? 'స్టాక్ & హోల్‌సేలర్'
+          : language === 'hi'
+          ? 'स्टॉक और होलसेलर'
+          : 'Stock & Wholesaler',
       icon: Package,
-      text: 'What all stock was updated yesterday or is low in stock? Give me a PDF.',
-      langText: 'నిన్న ఏ సరుకులు వచ్చాయి? నిల్వల PDF కావాలి',
+      textEn: 'What all stock was updated yesterday or is low in stock? Give me a PDF.',
+      textTe: 'నిన్న ఏ సరుకులు వచ్చాయి? నిల్వల PDF కావాలి',
+      textHi: 'कल कौन सा सामान आया या कौन सा स्टॉक कम है? मुझे PDF रिपोर्ट दो',
     },
     {
-      category: 'Customer Khata',
+      category:
+        language === 'te'
+          ? 'కస్టమర్ ఖాతా'
+          : language === 'hi'
+          ? 'ग्राहक का खाता'
+          : 'Customer Khata',
       icon: BookOpen,
-      text: 'How much has Ramesh Kumar ordered and what is his balance? Give me a statement PDF.',
-      langText: 'రమేష్ కుమార్ బాకీ ఎంత? స్టేట్‌మెంట్ PDF ఇవ్వు',
+      textEn: 'How much has Ramesh Kumar ordered and what is his balance? Give me a statement PDF.',
+      textTe: 'రమేష్ కుమార్ బాకీ ఎంత? స్టేట్‌మెంట్ PDF ఇవ్వు',
+      textHi: 'रमेश कुमार का इस महीने कितना खर्च हुआ और कितना उधार बाकी है? PDF दो',
     },
     {
-      category: 'Inventory Check',
+      category:
+        language === 'te'
+          ? 'సరుకుల చెక్'
+          : language === 'hi'
+          ? 'स्टॉक चेक'
+          : 'Inventory Check',
       icon: TrendingUp,
-      text: 'Which products are out of stock or need reordering from wholesaler?',
-      langText: 'ఏ సరుకులు అయిపోతున్నాయి?',
+      textEn: 'Which products are out of stock or need reordering from wholesaler?',
+      textTe: 'ఏ సరుకులు అయిపోతున్నాయి?',
+      textHi: 'कौन से सामान खत्म हो रहे हैं या दोबारा मंगाने हैं?',
     },
   ];
 
+  const getPromptText = (p: (typeof samplePrompts)[0]) => {
+    if (language === 'te') return p.textTe;
+    if (language === 'hi') return p.textHi;
+    return p.textEn;
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-4">
-      {/* Top Banner */}
+      {/* Top Banner with Language Dropdown at Top Right */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white p-5 rounded-3xl shadow-md border border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 flex items-center justify-center font-black shadow-lg">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 flex items-center justify-center font-black shadow-lg shrink-0">
             <Bot className="w-7 h-7" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-black tracking-tight">Mana-AI</h1>
               <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full">
-                Business Copilot
+                {language === 'te' ? 'మన బిజినెస్ AI' : language === 'hi' ? 'हमारा बिजनेस AI' : 'Business Copilot'}
               </span>
             </div>
             <p className="text-xs text-slate-300 mt-0.5">
-              Ask questions about stock, customers, or sales & generate instant PDF reports.
+              {language === 'te'
+                ? 'స్టాక్, కస్టమర్ల బాకీ, సేల్స్ గురించి అడగండి & క్షణాల్లో PDF రిపోర్ట్ పొందండి.'
+                : language === 'hi'
+                ? 'स्टॉक, ग्राहकों के उधार, बिक्री की जानकारी पूछें और तुरंत PDF रिपोर्ट पाएं।'
+                : 'Ask questions about stock, customers, or sales & generate instant PDF reports.'}
             </p>
           </div>
         </div>
 
-        {/* Action Controls & Settings */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 border border-slate-700 text-slate-200 text-xs font-semibold">
-            <Database className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="truncate max-w-[140px] sm:max-w-none">{shop.name} (Live DB)</span>
+        {/* Action Controls & Top-Right Language Dropdown */}
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap sm:flex-nowrap">
+          {/* Language Dropdown Inside Card */}
+          <div className="relative inline-flex items-center">
+            <Globe className="w-3.5 h-3.5 text-emerald-400 absolute left-2.5 pointer-events-none" />
+            <select
+              id="mana-ai-lang-select"
+              value={language}
+              onChange={(e) => handleLanguageChange(e.target.value as 'en' | 'te' | 'hi')}
+              className="appearance-none bg-slate-800/95 hover:bg-slate-700/90 text-white text-xs font-bold pl-8 pr-7 py-2 rounded-xl border border-slate-700 hover:border-emerald-500/70 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer transition shadow-sm"
+              title="Select AI Language"
+            >
+              <option value="en" className="bg-slate-900 text-white">English (EN)</option>
+              <option value="te" className="bg-slate-900 text-white">తెలుగు (Telugu)</option>
+              <option value="hi" className="bg-slate-900 text-white">हिंदी (Hindi)</option>
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 pointer-events-none" />
+          </div>
+
+          <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800/90 border border-slate-700 text-slate-200 text-xs font-semibold">
+            <Database className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className="truncate max-w-[130px] sm:max-w-none">{shop.name} (Live DB)</span>
           </div>
 
           <button
             onClick={() => setShowConfigModal(true)}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white transition"
+            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white transition shrink-0"
             title="AI Model & API Key Settings"
           >
             <Settings className="w-4 h-4" />
@@ -314,15 +395,20 @@ Ask me anything about your shop:
       {/* QUICK SUGGESTED PROMPTS */}
       <div className="bg-white p-3 sm:p-4 rounded-3xl border border-slate-200 shadow-sm space-y-2">
         <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-          {language === 'te' ? 'ఇలా అడగండి (క్లిక్ చేయండి):' : language === 'hi' ? 'सुझावित प्रश्न (क्लिक करें):' : 'Suggested Questions (Tap to ask):'}
+          {language === 'te'
+            ? 'ఇలా అడగండి (క్లిక్ చేయండి):'
+            : language === 'hi'
+            ? 'सुझावित प्रश्न (क्लिक करें):'
+            : 'Suggested Questions (Tap to ask):'}
         </span>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {samplePrompts.map((p, idx) => {
             const Icon = p.icon;
+            const promptText = getPromptText(p);
             return (
               <button
                 key={idx}
-                onClick={() => handleSend(language === 'te' ? p.langText : p.text)}
+                onClick={() => handleSend(promptText)}
                 className="p-2.5 rounded-2xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-left transition flex items-center justify-between group"
               >
                 <div className="flex items-center gap-2 overflow-hidden">
@@ -334,7 +420,7 @@ Ask me anything about your shop:
                       {p.category}
                     </span>
                     <p className="text-xs font-semibold text-slate-800 group-hover:text-emerald-950 truncate">
-                      "{language === 'te' ? p.langText : p.text}"
+                      "{promptText}"
                     </p>
                   </div>
                 </div>
@@ -488,6 +574,8 @@ Ask me anything about your shop:
               placeholder={
                 language === 'te'
                   ? 'Mana-AI ని అడగండి (ఉదా: "నిన్నటి అమ్మకాల వివరాలు చూపి PDF రాయి")...'
+                  : language === 'hi'
+                  ? 'Mana-AI से पूछें (जैसे: "कल और आज की बिक्री का PDF दो" या "स्टॉक रिपोर्ट")...'
                   : 'Ask Mana-AI (e.g. "What stock is low? Give me a PDF" or "How much did Ramesh spend?")...'
               }
               className="flex-1 min-w-0 bg-slate-100 rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 transition"
@@ -497,22 +585,22 @@ Ask me anything about your shop:
             <div className="hidden sm:flex items-center bg-slate-100 p-1 rounded-xl text-[10px] font-bold border border-slate-200">
               <button
                 type="button"
-                onClick={() => setSelectedVoiceLang('te-IN')}
-                className={`px-1.5 py-0.5 rounded-md ${selectedVoiceLang === 'te-IN' ? 'bg-emerald-600 text-white' : 'text-slate-600'}`}
+                onClick={() => handleLanguageChange('te')}
+                className={`px-1.5 py-0.5 rounded-md transition ${language === 'te' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:text-slate-900'}`}
               >
                 తెలుగు
               </button>
               <button
                 type="button"
-                onClick={() => setSelectedVoiceLang('hi-IN')}
-                className={`px-1.5 py-0.5 rounded-md ${selectedVoiceLang === 'hi-IN' ? 'bg-emerald-600 text-white' : 'text-slate-600'}`}
+                onClick={() => handleLanguageChange('hi')}
+                className={`px-1.5 py-0.5 rounded-md transition ${language === 'hi' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:text-slate-900'}`}
               >
                 हिंदी
               </button>
               <button
                 type="button"
-                onClick={() => setSelectedVoiceLang('en-IN')}
-                className={`px-1.5 py-0.5 rounded-md ${selectedVoiceLang === 'en-IN' ? 'bg-emerald-600 text-white' : 'text-slate-600'}`}
+                onClick={() => handleLanguageChange('en')}
+                className={`px-1.5 py-0.5 rounded-md transition ${language === 'en' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:text-slate-900'}`}
               >
                 EN
               </button>
