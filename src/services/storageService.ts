@@ -60,11 +60,26 @@ class StorageService {
     }
     if (!localStorage.getItem(STORAGE_KEYS.CURRENT_LOCATION)) {
       localStorage.setItem(STORAGE_KEYS.CURRENT_LOCATION, JSON.stringify({
-        city: 'Vijayawada',
-        locality: 'Moghalrajpuram',
-        landmark: 'Near Siddhartha College Road',
+        city: 'Hyderabad',
+        locality: 'Tara Nagar, Lingampally',
+        landmark: 'Near Rythu Bazaar, Lingampally',
       }));
     }
+
+    // Auto-migrate from old Vijayawada data to Hyderabad Lingampally & BHEL
+    try {
+      const loc = localStorage.getItem(STORAGE_KEYS.CURRENT_LOCATION);
+      if (loc && loc.includes('Vijayawada')) {
+        localStorage.setItem(STORAGE_KEYS.SHOPS, JSON.stringify(INITIAL_SHOPS));
+        localStorage.setItem(STORAGE_KEYS.CUSTOMERS, JSON.stringify(INITIAL_CUSTOMERS));
+        localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(INITIAL_ORDERS));
+        localStorage.setItem(STORAGE_KEYS.CURRENT_LOCATION, JSON.stringify({
+          city: 'Hyderabad',
+          locality: 'Tara Nagar, Lingampally',
+          landmark: 'Near Rythu Bazaar, Lingampally',
+        }));
+      }
+    } catch {}
   }
 
   public subscribe(listener: () => void) {
@@ -82,9 +97,9 @@ class StorageService {
   public getLocation(): { city: string; locality: string; landmark: string } {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.CURRENT_LOCATION);
-      return data ? JSON.parse(data) : { city: 'Vijayawada', locality: 'Moghalrajpuram', landmark: 'Near Siddhartha College' };
+      return data ? JSON.parse(data) : { city: 'Hyderabad', locality: 'Tara Nagar, Lingampally', landmark: 'Near Rythu Bazaar, Lingampally' };
     } catch {
-      return { city: 'Vijayawada', locality: 'Moghalrajpuram', landmark: 'Near Siddhartha College' };
+      return { city: 'Hyderabad', locality: 'Tara Nagar, Lingampally', landmark: 'Near Rythu Bazaar, Lingampally' };
     }
   }
 

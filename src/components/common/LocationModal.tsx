@@ -8,14 +8,14 @@ interface LocationModalProps {
 }
 
 const LOCALITIES = [
-  { name: 'Moghalrajpuram', landmark: 'Near Siddhartha College Road', shopsCount: 6 },
-  { name: 'Benz Circle', landmark: 'Opp. Modern Super Bazaar', shopsCount: 5 },
-  { name: 'Patamata', landmark: 'High School Road, Near Rythu Bazaar', shopsCount: 4 },
-  { name: 'Governorpet', landmark: 'Besant Road Cross', shopsCount: 7 },
-  { name: 'Labbipet', landmark: 'MG Road, Beside SBI', shopsCount: 3 },
-  { name: 'Auto Nagar', landmark: 'Main Commercial Ring Road', shopsCount: 4 },
-  { name: 'Bhavanipuram', landmark: 'HB Colony Junction', shopsCount: 3 },
-  { name: 'Satyanarayanapuram', landmark: 'Station Road, Near Vinayaka Temple', shopsCount: 4 },
+  { name: 'Tara Nagar, Lingampally', landmark: 'Near Rythu Bazaar & Main Road', shopsCount: 6 },
+  { name: 'BHEL Township (MIG Colony)', landmark: 'MIG Phase-1 Commercial Complex', shopsCount: 5 },
+  { name: 'Lingampally Station Road', landmark: 'Opp. Lingampally MMTS Station', shopsCount: 7 },
+  { name: 'BHEL Main Road', landmark: 'Shop #14, BHEL - Lingampally Road', shopsCount: 4 },
+  { name: 'Gulmohar Park Colony', landmark: 'Plot 24, Near Gulmohar Park Arch', shopsCount: 5 },
+  { name: 'HUDA Colony, Chanda Nagar', landmark: 'Near Vijetha Supermarket', shopsCount: 6 },
+  { name: 'BHEL MIG-2', landmark: 'Commercial Complex, Ramachandrapuram', shopsCount: 4 },
+  { name: 'Lingampally Market', landmark: 'Opp. Lingampally Bus Stand Road', shopsCount: 5 },
 ];
 
 export const LocationModal: React.FC<LocationModalProps> = ({ isOpen, onClose }) => {
@@ -27,7 +27,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({ isOpen, onClose })
   const handleSelect = (loc: typeof LOCALITIES[0]) => {
     setSelected(loc.name);
     storage.setLocation({
-      city: 'Vijayawada',
+      city: 'Hyderabad',
       locality: loc.name,
       landmark: loc.landmark,
     });
@@ -62,10 +62,10 @@ export const LocationModal: React.FC<LocationModalProps> = ({ isOpen, onClose })
         <div className="p-4 bg-emerald-50/60 border-b border-emerald-100/60 flex items-center justify-between text-xs text-emerald-800">
           <div className="flex items-center gap-2">
             <Navigation className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
-            <span>Active City: <strong>Vijayawada, AP</strong></span>
+            <span>Active City: <strong>Hyderabad (Lingampally & BHEL)</strong></span>
           </div>
           <span className="bg-emerald-600 text-white px-2 py-0.5 rounded-full text-[10px] font-medium">
-            Demo Localities
+            Active Hub
           </span>
         </div>
 

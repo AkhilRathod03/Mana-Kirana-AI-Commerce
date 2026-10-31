@@ -248,6 +248,12 @@ Ask me anything about your shop:
 
   const samplePrompts = [
     {
+      category: 'Sales & PDF Report',
+      icon: DollarSign,
+      text: "How much sales happened yesterday and today? Give me a PDF.",
+      langText: 'ఎంత సేల్స్ అయింది పిడిఎఫ్ కావాలి',
+    },
+    {
       category: 'Stock & Wholesaler',
       icon: Package,
       text: 'What all stock was updated yesterday or is low in stock? Give me a PDF.',
@@ -258,12 +264,6 @@ Ask me anything about your shop:
       icon: BookOpen,
       text: 'How much has Ramesh Kumar ordered and what is his balance? Give me a statement PDF.',
       langText: 'రమేష్ కుమార్ బాకీ ఎంత? స్టేట్‌మెంట్ PDF ఇవ్వు',
-    },
-    {
-      category: 'Sales & Revenue',
-      icon: DollarSign,
-      text: "Show yesterday's sales and expenses breakdown with a PDF report.",
-      langText: 'నిన్నటి అమ్మకాలు, ఖర్చుల PDF రిపోర్టు ఇవ్వు',
     },
     {
       category: 'Inventory Check',
@@ -656,3 +656,4 @@ Ask me anything about your shop:
     </div>
   );
 };
+
